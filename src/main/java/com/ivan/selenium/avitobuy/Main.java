@@ -8,14 +8,13 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
-
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ExecutorService;
@@ -112,49 +111,47 @@ public class Main {
             final AtomicBoolean payButtonFound = new AtomicBoolean(false);
             long iterationStart = System.currentTimeMillis();
 
-            while (!(buyButtonError.get() && payButtonFound.get())) {
-                CountDownLatch latch = new CountDownLatch(2);
+            try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+                while (!(buyButtonError.get() && payButtonFound.get())) {
+                    CountDownLatch latch = new CountDownLatch(2);
 
-                Thread process1 = new Thread(() -> {
+                    executor.submit(() -> {
+                        try {
+                            WebElement buyButton = driver.findElement(By.xpath(BUY_BUTTON_XPATH));
+                            buyButton.click();
+                        } catch (Exception e) {
+                            buyButtonError.set(true);
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
+
+                    executor.submit(() -> {
+                        try {
+                            payButtonFound.set(!driver.findElements(By.xpath(PAY_BUTTON_XPATH)).isEmpty());
+                        } catch (Exception e) {
+                            // Ошибка поиска payButton ожидаема
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
+
                     try {
-                        WebElement buyButton = driver.findElement(
-                                By.xpath(BUY_BUTTON_XPATH));
-                        buyButton.click();
-                    } catch (Exception e) {
-                        buyButtonError.set(true);
-                    } finally {
-                        latch.countDown();
+                        latch.await(); // Ждём завершения обеих задач
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                     }
-                });
 
-                Thread process2 = new Thread(() -> {
-                    try {
-                        payButtonFound.set(!driver.findElements(
-                                By.xpath(PAY_BUTTON_XPATH)).isEmpty());
-                    } catch (Exception e) {
-                        // Ошибка поиска payButton ожидаема
-                    } finally {
-                        latch.countDown();
+                    // Действия при сбое
+                    if (buyButtonError.get() && !payButtonFound.get()) {
+                        try {
+                            driver.navigate().refresh();
+                        } catch (Exception TimeoutException) {
+                            // Ошибка обновления страницы ожидаема
+                        }
+                        buyButtonError.set(false);
+                        payButtonFound.set(false);
                     }
-                });
-
-                process1.start();
-                process2.start();
-
-                try {
-                    latch.await();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-
-                if (buyButtonError.get() && !payButtonFound.get()) {
-                    try {
-                        driver.navigate().refresh();
-                    } catch (Exception TimeoutException) {
-                        // Ошибка обновления страницы ожидаема
-                    }
-                    buyButtonError.set(false);
-                    payButtonFound.set(false);
                 }
             }
             long iterationEnd = System.currentTimeMillis(); // Конец измерения времени итерации
