@@ -57,9 +57,6 @@ public class Main {
         return process.waitFor(); // Ждем завершения процесса и возвращаем код выхода
     }
 
-    private static final String BUY_BUTTON_XPATH = "//button[@data-marker='delivery-item-button-main']";
-    private static final String PAY_BUTTON_XPATH = "//button[@data-marker='sd/order-widget-payment-button']";
-
     public static ChromeOptions createChromeOptions(String relativePath, boolean headless) {
         String absolutePath = Paths.get(relativePath).toAbsolutePath().toString();
 
@@ -100,6 +97,23 @@ public class Main {
             Thread.currentThread().interrupt();
         }
     }
+
+    public static boolean isPriceWithinLimit(int maxPrice) {
+        String xpath = "//span[@data-marker='item-view/item-price']";
+        try {
+            WebElement priceElement = driver.findElement(By.xpath(xpath));
+            String priceText = priceElement.getText();
+            int price = Integer.parseInt(priceText.replaceAll("[^0-9]", ""));
+
+            return price <= maxPrice;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static final String BUY_BUTTON_XPATH = "//button[@data-marker='delivery-item-button-main']";
+    private static final String PAY_BUTTON_XPATH = "//button[@data-marker='sd/order-widget-payment-button']";
+    private static final String PAYMENT_OPTION_XPATH = "//li[@data-id='196765361|1']";
 
     public static void performActionWithRetry(String firstButtonXPath, String secondButtonXPath) {
         final AtomicBoolean firstButtonError = new AtomicBoolean(false);
@@ -172,33 +186,25 @@ public class Main {
             }
 
             isButtonAvailable(timeSleep);
+            if (!isPriceWithinLimit(maxPrice))
+                return;
+
+            //  Нажимаем кнопку "Купить с доставкой" и ждём появления кнопки "Оплатить"
             performActionWithRetry(BUY_BUTTON_XPATH, PAY_BUTTON_XPATH);
 
+            //  Нажимаем кнопку "Оплатить" и ждём появления выбора способа оплаты
+            performActionWithRetry(PAY_BUTTON_XPATH, PAYMENT_OPTION_XPATH);
 
+            WebDriverWait quickWait = new WebDriverWait(driver, Duration.ofMillis(500));
+            WebElement goToPaymentButton = quickWait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath(PAYMENT_OPTION_XPATH)));
+            goToPaymentButton.click();
 
-
-            //  Нажимаем кнопку "Купить с доставкой"
-//            WebElement buyButton = slowWait.until(ExpectedConditions.presenceOfElementLocated(
-//                    By.xpath("//button[@data-marker='delivery-item-button-main']")));
-//            buyButton.click();
-
-
-            // Нажимаем кнопку "Оплатить"
-//            WebElement payButton = quickWait.until(ExpectedConditions.elementToBeClickable(
-//                    By.xpath("//button[@data-marker='sd/order-widget-payment-button']")));
-//            payButton.click();
-
-
-            // Выбираем способ оплаты
-//            WebElement paymentOption = slowWait.until(ExpectedConditions.presenceOfElementLocated(
-//                    By.xpath("//li[@data-id='196765361|1']")));
-//            paymentOption.click();
-
-
-//            // Нажимаем "Перейти к оплате"
-//            WebElement goToPaymentButton = slowWait.until(ExpectedConditions.elementToBeClickable(
+            // Нажимаем "Перейти к оплате"
+//            WebElement goToPaymentButton = quickWait.until(ExpectedConditions.elementToBeClickable(
 //                    By.xpath("//button[@data-marker='payButton']")));
 //            goToPaymentButton.click();
+
 //
 //            // Вводим код из SMS
 //            WebElement smsCodeInput = slowWait.until(ExpectedConditions.presenceOfElementLocated(
@@ -209,9 +215,8 @@ public class Main {
 //            WebElement confirmButton = slowWait.until(ExpectedConditions.elementToBeClickable(
 //                    By.xpath("//input[@id='btnSubmit']")));
 //            confirmButton.click();
+
             System.out.println("Купил");
-
-
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Произошла ошибка.", e);
         } finally {
