@@ -42,3 +42,4 @@ Data/
 .env
 code.txt
 curl.txt
+ngrok/config.bat
