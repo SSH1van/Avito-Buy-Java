@@ -6,10 +6,10 @@ public class Ivan {
 //        String url = "https://www.avito.ru/moskva/tovary_dlya_detey_i_igrushki/nabor_kantselyarii_dlya_devochek_s_organayzerom_4785538351?slocation=621540";
         String relativePath = "Data/User Data Ivan";
         int maxPrice = 1000;
-        long timeWait = 1800;
+        long timeRefresh = 1800;
         long timeSleep = 0;
         boolean headless = true;
 
-        Main.startWebDriver(url, relativePath, maxPrice, timeWait, timeSleep, headless);
+        Main.startWebDriver(url, relativePath, maxPrice, timeRefresh, timeSleep, headless);
     }
 }
