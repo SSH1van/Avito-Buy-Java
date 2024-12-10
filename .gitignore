@@ -40,3 +40,5 @@ build/
 ### Project ###
 Data/
 .env
+code.txt
+curl.txt
