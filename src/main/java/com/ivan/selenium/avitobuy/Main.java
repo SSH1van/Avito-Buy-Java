@@ -7,7 +7,11 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.TimeoutException;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -24,6 +28,7 @@ public class Main {
     private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
     private static WebDriver driver;
 
+    // Сборщик мусора
     private static void cleanUpWebDriver() {
         if (driver != null) {
             driver.quit();
@@ -57,6 +62,7 @@ public class Main {
         return process.waitFor(); // Ждем завершения процесса и возвращаем код выхода
     }
 
+    // Опции дял Chrome
     public static ChromeOptions createChromeOptions(String relativePath, boolean headless) {
         String absolutePath = Paths.get(relativePath).toAbsolutePath().toString();
 
@@ -73,17 +79,20 @@ public class Main {
         return chromeOptions;
     }
 
-    public static void isButtonAvailable(long timeSleep) {
+    // Проверка доступности кнопки
+    public static void isElementAvailable(String element, long timeSleep) {
         WebDriverWait quickWait = new WebDriverWait(driver, Duration.ofMillis(500));
-        boolean isButtonAvailable = false;
+        boolean isElementAvailable = false;
         Random random = new Random();
 
         try {
             TimeUnit.SECONDS.sleep(timeSleep);
-            while (!isButtonAvailable) {
+            while (!isElementAvailable) {
+                if (isFirewallPresent()) return;
+
                 try {
-                    quickWait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(BUY_BUTTON_XPATH)));
-                    isButtonAvailable = true;
+                    quickWait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(element)));
+                    isElementAvailable = true;
                 } catch (Exception ex) {
                     TimeUnit.MILLISECONDS.sleep(100 + random.nextInt(250));
                     try {
@@ -98,6 +107,7 @@ public class Main {
         }
     }
 
+    // Проверка цены
     public static boolean isPriceWithinLimit(int maxPrice) {
         String xpath = "//span[@data-marker='item-view/item-price']";
         try {
@@ -111,14 +121,28 @@ public class Main {
         }
     }
 
+    // Проверка на Firewall
+    public static boolean isFirewallPresent() {
+        try {
+            driver.findElement(By.xpath("//h2[@class='firewall-title']"));
+            System.out.println("Блокировка по IP. Решите капчу!");
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private static final String BUY_BUTTON_XPATH = "//button[@data-marker='delivery-item-button-main']";
     private static final String PAY_BUTTON_XPATH = "//button[@data-marker='sd/order-widget-payment-button']";
     private static final String PAYMENT_OPTION_XPATH = "//li[@data-id='196765361|1']";
+    private static final String GO_TO_PAYMENT_XPATH = "//button[@data-marker='payButton']";
+    private static final String SMS_CODE_INPUT_XPATH = "//input[@id='psw_id']";
+    private static final String CONFIRM_BUTTON_XPATH = "//input[@id='btnSubmit']";
 
+    // Попытка нажать на firstButton и найти на странице secondButton
     public static void performActionWithRetry(String firstButtonXPath, String secondButtonXPath) {
         final AtomicBoolean firstButtonError = new AtomicBoolean(false);
         final AtomicBoolean secondButtonFound = new AtomicBoolean(false);
-        long iterationStart = System.currentTimeMillis();
 
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
             while (!(firstButtonError.get() && secondButtonFound.get())) {
@@ -128,7 +152,10 @@ public class Main {
                     try {
                         WebElement firstButton = driver.findElement(By.xpath(firstButtonXPath));
                         firstButton.click();
+                    } catch (TimeoutException e) {
+                        // Ошибка загрузки страницы ожидаема
                     } catch (Exception e) {
+                        // Ошибка нажатия первой кнопки ожидаема
                         firstButtonError.set(true);
                     } finally {
                         latch.countDown();
@@ -138,6 +165,8 @@ public class Main {
                 executor.submit(() -> {
                     try {
                         secondButtonFound.set(!driver.findElements(By.xpath(secondButtonXPath)).isEmpty());
+                    } catch (TimeoutException e) {
+                        // Ошибка загрузки страницы ожидаема
                     } catch (Exception e) {
                         // Ошибка поиска второй кнопки ожидаема
                     } finally {
@@ -163,12 +192,31 @@ public class Main {
                 }
             }
         }
-
-        long iterationEnd = System.currentTimeMillis();
-        System.out.println("Время выполнения перехода: " + (iterationEnd - iterationStart) + " мс");
     }
 
-    public static void startWebDriver(String url, String relativePath, int maxPrice, long timeWait, long timeSleep, boolean headless) {
+    public static String waitForCodeFile() throws IOException {
+        File file = new File("code.txt");
+
+        while (!file.exists()) {
+            try {
+                TimeUnit.MILLISECONDS.sleep(100);
+            } catch (InterruptedException e) {
+                throw new IOException("Ожидание было прервано.", e);
+            }
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            return reader.readLine();
+        } finally {
+            if (file.delete()) {
+                System.out.println("Файл " + file.getName() + " успешно удалён");
+            } else {
+                System.err.println("Не удалось удалить файл " + file.getName());
+            }
+        }
+    }
+
+    public static void startWebDriver(String url, String relativePath, int maxPrice, long timeRefresh, long timeSleep, boolean headless) {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("Программа завершена. Освобождаем ресурсы...");
             cleanUpWebDriver();
@@ -176,7 +224,7 @@ public class Main {
 
         ChromeOptions chromeOptions = createChromeOptions(relativePath, headless);
         driver = new ChromeDriver(chromeOptions);
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofMillis(timeWait));
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofMillis(timeRefresh));
 
         try {
             try {
@@ -185,7 +233,7 @@ public class Main {
                 // Ошибка загрузки страницы ожидаема
             }
 
-            isButtonAvailable(timeSleep);
+            isElementAvailable(BUY_BUTTON_XPATH, timeSleep);
             if (!isPriceWithinLimit(maxPrice))
                 return;
 
@@ -195,26 +243,37 @@ public class Main {
             //  Нажимаем кнопку "Оплатить" и ждём появления выбора способа оплаты
             performActionWithRetry(PAY_BUTTON_XPATH, PAYMENT_OPTION_XPATH);
 
+            // Выбор способа оплаты
             WebDriverWait quickWait = new WebDriverWait(driver, Duration.ofMillis(500));
-            WebElement goToPaymentButton = quickWait.until(ExpectedConditions.elementToBeClickable(
+            WebElement paymentOption = quickWait.until(ExpectedConditions.elementToBeClickable(
                     By.xpath(PAYMENT_OPTION_XPATH)));
-            goToPaymentButton.click();
+            paymentOption.click();
+
 
             // Нажимаем "Перейти к оплате"
-//            WebElement goToPaymentButton = quickWait.until(ExpectedConditions.elementToBeClickable(
-//                    By.xpath("//button[@data-marker='payButton']")));
-//            goToPaymentButton.click();
+            WebElement goToPaymentButton = quickWait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath(GO_TO_PAYMENT_XPATH)));
+            try {
+                goToPaymentButton.click();
+            } catch (Exception TimeoutException) {
+                // Ошибка загрузки страницы ожидаема
+            }
 
-//
-//            // Вводим код из SMS
-//            WebElement smsCodeInput = slowWait.until(ExpectedConditions.presenceOfElementLocated(
-//                    By.xpath("//input[@id='psw_id']")));
-//            smsCodeInput.sendKeys("1234"); // Здесь замените "1234" на актуальный код из SMS
-//
-//            // Подтверждаем оплату
-//            WebElement confirmButton = slowWait.until(ExpectedConditions.elementToBeClickable(
-//                    By.xpath("//input[@id='btnSubmit']")));
-//            confirmButton.click();
+            // Вводим код из SMS
+            String code = waitForCodeFile();
+            isElementAvailable(SMS_CODE_INPUT_XPATH, timeSleep);
+            WebElement smsCodeInput = quickWait.until(ExpectedConditions.presenceOfElementLocated(
+                    By.xpath(SMS_CODE_INPUT_XPATH)));
+            smsCodeInput.sendKeys(code);
+
+            // Подтверждаем оплату
+            WebElement confirmButton = quickWait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath(CONFIRM_BUTTON_XPATH)));
+            try {
+                confirmButton.click();
+            } catch (Exception TimeoutException) {
+                // Ошибка загрузки страницы ожидаема
+            }
 
             System.out.println("Купил");
         } catch (Exception e) {
