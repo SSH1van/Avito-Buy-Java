@@ -1,4 +1,4 @@
-package com.ivan.selenium.avitobuy;
+package com.ivan.selenium.avitobuy.HttpServer;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;

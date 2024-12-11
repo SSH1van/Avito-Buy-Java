@@ -1,4 +1,4 @@
-package com.ivan.selenium.avitobuy;
+package com.ivan.selenium.avitobuy.HttpServer;
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class Config {
