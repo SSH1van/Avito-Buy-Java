@@ -216,7 +216,37 @@ public class Main {
         }
     }
 
-    public static void startWebDriver(String url, String relativePath, int maxPrice, long timeRefresh, long timeSleep, boolean headless) {
+    // Интерфейс для выбора оплаты
+    public interface PaymentStrategy {
+        void processPayment(String code, long timeSleep, WebDriverWait quickWait);
+    }
+    public static class VTBPaymentStrategy implements PaymentStrategy {
+        @Override
+        public void processPayment(String code, long timeSleep, WebDriverWait quickWait) {
+
+            isElementAvailable(SMS_CODE_INPUT_XPATH, timeSleep);
+            WebElement smsCodeInput = quickWait.until(ExpectedConditions.presenceOfElementLocated(
+                    By.xpath(SMS_CODE_INPUT_XPATH)));
+            smsCodeInput.sendKeys(code);
+
+            // Подтверждаем оплату
+            WebElement confirmButton = quickWait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath(CONFIRM_BUTTON_XPATH)));
+            try {
+                confirmButton.click();
+            } catch (Exception TimeoutException) {
+                // Ошибка загрузки страницы ожидаема
+            }
+        }
+    }
+    public static class SBERPaymentStrategy implements PaymentStrategy {
+        @Override
+        public void processPayment(String code, long timeSleep, WebDriverWait quickWait) {
+            System.out.println("Processing payment via SBER...");
+        }
+    }
+
+    public static void startWebDriver(String url, String relativePath, int maxPrice, long timeRefresh, long timeSleep, boolean headless, PaymentStrategy paymentStrategy) {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("Программа завершена. Освобождаем ресурсы...");
             cleanUpWebDriver();
@@ -249,8 +279,7 @@ public class Main {
                     By.xpath(PAYMENT_OPTION_XPATH)));
             paymentOption.click();
 
-
-            // Увеличиваем время обновления, т.к. страница оплаты медленно загружается
+            // Увеличиваем время обновления, поскольку страница оплаты медленно загружается
             driver.manage().timeouts().pageLoadTimeout(Duration.ofMillis(timeRefresh * 2));
             // Нажимаем "Перейти к оплате"
             WebElement goToPaymentButton = quickWait.until(ExpectedConditions.elementToBeClickable(
@@ -261,21 +290,11 @@ public class Main {
                 // Ошибка загрузки страницы ожидаема
             }
 
-            // Вводим код из SMS
+            // Получаем код из SMS
             String code = waitForCodeFile();
-            isElementAvailable(SMS_CODE_INPUT_XPATH, timeSleep);
-            WebElement smsCodeInput = quickWait.until(ExpectedConditions.presenceOfElementLocated(
-                    By.xpath(SMS_CODE_INPUT_XPATH)));
-            smsCodeInput.sendKeys(code);
 
-            // Подтверждаем оплату
-            WebElement confirmButton = quickWait.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath(CONFIRM_BUTTON_XPATH)));
-            try {
-                confirmButton.click();
-            } catch (Exception TimeoutException) {
-                // Ошибка загрузки страницы ожидаема
-            }
+            // Запускаем ввод SMS со способом оплаты, который был передан
+            paymentStrategy.processPayment(code, timeSleep, quickWait);
 
             System.out.println("Купил");
         } catch (Exception e) {

@@ -9,7 +9,8 @@ public class Ivan {
         long timeRefresh = 1800;
         long timeSleep = 0;
         boolean headless = true;
+        Main.PaymentStrategy paymentStrategy = new Main.VTBPaymentStrategy();
 
-        Main.startWebDriver(url, relativePath, maxPrice, timeRefresh, timeSleep, headless);
+        Main.startWebDriver(url, relativePath, maxPrice, timeRefresh, timeSleep, headless, paymentStrategy);
     }
 }
