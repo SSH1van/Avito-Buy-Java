@@ -250,6 +250,8 @@ public class Main {
             paymentOption.click();
 
 
+            // Увеличиваем время обновления, т.к. страница оплаты медленно загружается
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofMillis(timeRefresh * 2));
             // Нажимаем "Перейти к оплате"
             WebElement goToPaymentButton = quickWait.until(ExpectedConditions.elementToBeClickable(
                     By.xpath(GO_TO_PAYMENT_XPATH)));
