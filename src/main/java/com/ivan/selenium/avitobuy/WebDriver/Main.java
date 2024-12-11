@@ -11,7 +11,7 @@ public class Main {
     private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
 
     private static final String BUY_BUTTON_XPATH = "//button[@data-marker='delivery-item-button-main']";
-    private static final String PAY_BUTTON_XPATH = "//button[@data-marker='sd/order-widget-payment-button']";
+    private static final String PAYMENT_OR_ORDER_BUTTON_XPATH = "//button[@data-marker='sd/order-widget-payment-button' or @data-marker='sidebar/orderButton']";
     private static final String PAYMENT_OPTION_XPATH = "//li[@data-id='196765361|1']";
     private static final String GO_TO_PAYMENT_XPATH = "//button[@data-marker='payButton']";
 
@@ -39,11 +39,11 @@ public class Main {
             if (!actions.isPriceWithinLimit(maxPrice))
                 return;
 
-            //  Нажимаем кнопку "Купить с доставкой" и ждём появления кнопки "Оплатить"
-            actions.performActionWithRetry(BUY_BUTTON_XPATH, PAY_BUTTON_XPATH);
+            //  Нажимаем кнопку "Купить с доставкой" и ждём появления кнопки "Оплатить" или "Перейти к оплате"
+            actions.performActionWithRetry(BUY_BUTTON_XPATH, PAYMENT_OR_ORDER_BUTTON_XPATH);
 
-            //  Нажимаем кнопку "Оплатить" и ждём появления выбора способа оплаты
-            actions.performActionWithRetry(PAY_BUTTON_XPATH, PAYMENT_OPTION_XPATH);
+            //  Нажимаем кнопку "Оплатить" или "Перейти к оплате" и ждём появления выбора способа оплаты
+            actions.performActionWithRetry(PAYMENT_OR_ORDER_BUTTON_XPATH, PAYMENT_OPTION_XPATH);
 
             // Выбираем способ оплаты, увеличиваем время обновления страницы, переходим к оплате
             actions.selectPaymentMethod(PAYMENT_OPTION_XPATH, GO_TO_PAYMENT_XPATH, timeRefresh * 2);
