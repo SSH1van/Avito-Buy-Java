@@ -11,7 +11,7 @@ import java.util.Base64;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class SimpleHttpServer {
+public class CodeReceiverHttpServer {
     private static final String AUTH_LOGIN = Config.AUTH_LOGIN;
     private static final String AUTH_PASSWORD = Config.AUTH_PASSWORD;
     private static final String OUTPUT_FILE = "code.txt";
