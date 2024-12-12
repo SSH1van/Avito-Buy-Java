@@ -30,7 +30,7 @@ public class Main {
         try {
             PageActions actions = new PageActions(driver);
 
-            // Открываем ссылку на товар
+            // Открываем ссылку на товар и ждём заданное время
             actions.openUrl(url, timeSleep);
 
             // Проверка доступности кнопки "Купить с доставкой"
@@ -55,10 +55,10 @@ public class Main {
             // Осуществляем оплату способом, который был передан
             paymentStrategy.processPayment(driver, code);
 
-            System.out.println("Купил");
+            System.out.println("Куплено");
             TimeUnit.SECONDS.sleep(10);
         } catch (Exception e) {
-            LOGGER.severe("An error occurred: " + e.getMessage());
+            LOGGER.severe("Произошла ошибка: " + e.getMessage());
         } finally {
             driverManager.cleanUp();
         }

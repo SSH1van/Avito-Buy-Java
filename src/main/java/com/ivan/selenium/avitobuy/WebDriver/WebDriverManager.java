@@ -52,6 +52,7 @@ public class WebDriverManager {
         }
     }
 
+    // Проверяем, что останавливаемый процесс не запущен
     private boolean isProcessRunning() throws IOException {
         String command = System.getProperty("os.name").toLowerCase().contains("win") ? "tasklist" : "ps -e";
         ProcessBuilder processBuilder = new ProcessBuilder(command.split(" "));
@@ -68,14 +69,13 @@ public class WebDriverManager {
         return false;
     }
 
-
     private int executeCommand(String... command) throws IOException, InterruptedException {
         ProcessBuilder processBuilder = new ProcessBuilder(command);
         Process process = processBuilder.start();
         return process.waitFor();
     }
 
-    // Опции дял Chrome
+    // Опции для Chrome
     public static ChromeOptions createOptions(String relativePath, boolean headless) {
         String absolutePath = Paths.get(relativePath).toAbsolutePath().toString();
 
